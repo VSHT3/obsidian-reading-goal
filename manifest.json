@@ -1,0 +1,9 @@
+{
+	"id": "reading-progress",
+	"name": "Reading Progress",
+	"version": "1.0.0",
+	"minAppVersion": "1.4.4",
+	"description": "Track reading progress in note properties. Renders a progress bar scaled to a book's page count, with commands to advance your position and a vault-wide goal tracker.",
+	"author": "vsht",
+	"isDesktopOnly": false
+}
