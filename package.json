@@ -1,6 +1,6 @@
 {
 	"name": "reading-progress",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"description": "Track reading progress in note properties.",
 	"main": "main.js",
 	"type": "module",
@@ -8,15 +8,21 @@
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test": "esbuild test/run.ts --bundle --platform=node --format=esm --target=node20 --alias:obsidian=./test/obsidian-stub.ts --outfile=node_modules/.cache/rp-test.mjs --log-level=warning && node node_modules/.cache/rp-test.mjs",
-		"version": "node version-bump.mjs && git add manifest.json versions.json"
+		"version": "node version-bump.mjs && git add manifest.json versions.json",
+		"lint": "eslint ."
 	},
 	"keywords": [],
 	"license": "MIT",
 	"devDependencies": {
+		"@eslint/js": "^10.0.1",
 		"@types/node": "^22.15.17",
-		"builtin-modules": "^5.3.0",
 		"esbuild": "0.25.5",
+		"eslint": "^9.39.5",
+		"eslint-plugin-obsidianmd": "^0.4.2",
+		"globals": "^17.12.0",
+		"jiti": "^2.7.0",
 		"obsidian": "latest",
-		"typescript": "^5.8.3"
+		"typescript": "^5.8.3",
+		"typescript-eslint": "^8.69.0"
 	}
 }

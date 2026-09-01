@@ -3,14 +3,26 @@
  * touches. Enough to exercise the real logic outside the app.
  */
 
+// Type-only import of the real declarations, so the doubles stay assignable
+// where plugin code expects Obsidian's own types. esbuild erases it, and at
+// bundle time "obsidian" is aliased to this file.
+import type { Vault } from "obsidian";
+
 export class TFile {
 	path: string;
 	basename: string;
+	name: string;
 	extension = "md";
+	// Present so the double stays structurally assignable to the real TFile;
+	// nothing under test reads them.
+	parent = null;
+	vault = null as unknown as Vault;
+	stat = { ctime: 0, mtime: 0, size: 0 };
 
 	constructor(path: string) {
 		this.path = path;
-		this.basename = path.replace(/^.*\//, "").replace(/\.md$/, "");
+		this.name = path.replace(/^.*\//, "");
+		this.basename = this.name.replace(/\.md$/, "");
 	}
 }
 

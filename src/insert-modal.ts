@@ -132,7 +132,7 @@ export class InsertBlockModal extends Modal {
 
 			new Setting(body).setName("Step sizes").addText((t) =>
 				t
-					.setPlaceholder("small")
+					.setPlaceholder("Small")
 					.setValue(String(this.draft.smallStep))
 					.onChange((v) => {
 						this.draft.smallStep = Number.parseInt(v, 10) || this.plugin.settings.smallStep;
@@ -140,7 +140,7 @@ export class InsertBlockModal extends Modal {
 					}),
 			).addText((t) =>
 				t
-					.setPlaceholder("large")
+					.setPlaceholder("Large")
 					.setValue(String(this.draft.largeStep))
 					.onChange((v) => {
 						this.draft.largeStep = Number.parseInt(v, 10) || this.plugin.settings.largeStep;
