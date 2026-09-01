@@ -1,16 +1,19 @@
-import { FakeApp, notices } from "./obsidian-stub";
+import { FakeApp, FIXED_DATE, notices } from "./obsidian-stub";
 import type { App } from "obsidian";
 import {
 	collectGoalTotals,
 	isBookNote,
 	isTrackable,
+	finishBook,
 	movePosition,
 	readBookState,
+	startReread,
 	writePosition,
 } from "../src/progress";
 import { DEFAULT_SETTINGS } from "../src/settings";
 import { goalOptions, parseOptions, progressOptions } from "../src/block-options";
 import { applyTemplate } from "../src/template";
+import { updateLog } from "../src/history";
 
 const settings = { ...DEFAULT_SETTINGS, pageGoal: 1000, wordsPerPage: 400 };
 
@@ -286,6 +289,126 @@ section("Label templates");
 	check("unknown token reported", typo.unknown, ["{totl}"]);
 
 	check("braces without a token survive", applyTemplate("a { b } c", values).text, "a { b } c");
+}
+
+section("Reading log");
+{
+	const heading = "Reading log";
+
+	check(
+		"section created when absent",
+		updateLog("---\ntitle: x\n---\n\nNotes.", heading, "2026-09-01", 30),
+		"---\ntitle: x\n---\n\nNotes.\n\n## Reading log\n\n- 2026-09-01: 30\n",
+	);
+
+	check(
+		"entry appended to an existing section",
+		updateLog("## Reading log\n\n- 2026-08-30: 10\n", heading, "2026-09-01", 30),
+		"## Reading log\n\n- 2026-08-30: 10\n- 2026-09-01: 30\n",
+	);
+
+	// Holding a hotkey must not produce forty lines.
+	let repeated = "## Reading log\n\n- 2026-09-01: 30\n";
+	for (const page of [31, 32, 33]) repeated = updateLog(repeated, heading, "2026-09-01", page);
+	check("same day rewritten in place", repeated, "## Reading log\n\n- 2026-09-01: 33\n");
+
+	check(
+		"a later section is not disturbed",
+		updateLog(
+			"## Reading log\n\n- 2026-08-30: 10\n\n## Quotes\n\nSomething memorable.\n",
+			heading,
+			"2026-09-01",
+			30,
+		),
+		"## Reading log\n\n- 2026-08-30: 10\n- 2026-09-01: 30\n\n## Quotes\n\nSomething memorable.\n",
+	);
+
+	check(
+		"deeper headings inside the section are kept",
+		updateLog("## Reading log\n\n### Part one\n\n- 2026-08-30: 10\n", heading, "2026-09-01", 30),
+		"## Reading log\n\n### Part one\n\n- 2026-08-30: 10\n- 2026-09-01: 30\n",
+	);
+
+	check(
+		"heading match ignores case and level",
+		updateLog("# reading LOG\n\n- 2026-08-30: 10\n", heading, "2026-09-01", 30),
+		"# reading LOG\n\n- 2026-08-30: 10\n- 2026-09-01: 30\n",
+	);
+
+	check(
+		"a frontmatter line cannot be mistaken for the heading",
+		updateLog("---\nx: 1\n---\n", heading, "2026-09-01", 30),
+		"---\nx: 1\n---\n\n## Reading log\n\n- 2026-09-01: 30\n",
+	);
+
+	check(
+		"empty section gains a blank line",
+		updateLog("## Reading log\n", heading, "2026-09-01", 30),
+		"## Reading log\n\n- 2026-09-01: 30",
+	);
+}
+
+section("Reading log writes");
+{
+	const withLog = { ...settings, enableHistory: true };
+	const app = new FakeApp();
+	const file = app.add("Logged.md", { tags: ["Book"], pages: 300, currentpage: 0 });
+	app.setBody("Logged.md", "---\npages: 300\n---\n\nNotes.");
+
+	await movePosition(asApp(app), file, 20, withLog);
+	check("log written on change", app.body("Logged.md").includes(`- ${FIXED_DATE}: 20`), true);
+
+	await movePosition(asApp(app), file, 5, withLog);
+	const lines = app.body("Logged.md").split("\n").filter((l) => l.startsWith("- "));
+	check("second move updates the same day", lines, [`- ${FIXED_DATE}: 25`]);
+
+	// Clamped to zero twice: the second write changes nothing, so no log churn.
+	await movePosition(asApp(app), file, -999, withLog);
+	const atZero = app.body("Logged.md");
+	await movePosition(asApp(app), file, -999, withLog);
+	check("no-op writes leave the log alone", app.body("Logged.md"), atZero);
+
+	const quiet = new FakeApp();
+	const quietFile = quiet.add("Quiet.md", { tags: ["Book"], pages: 300, currentpage: 0 });
+	quiet.setBody("Quiet.md", "Notes.");
+	await movePosition(asApp(quiet), quietFile, 10, settings);
+	check("history off writes nothing", quiet.body("Quiet.md"), "Notes.");
+}
+
+section("Re-reads");
+{
+	const app = new FakeApp();
+	const file = app.add("Reread.md", {
+		tags: ["Book"],
+		pages: 300,
+		currentpage: 300,
+		status: "finished",
+	});
+
+	check("first re-read returns pass count", await startReread(asApp(app), file, settings), 1);
+	check("position reset", app.frontmatterOf("Reread.md").currentpage, 0);
+	check("status back to reading", app.frontmatterOf("Reread.md").status, "reading");
+	check("counter written", app.frontmatterOf("Reread.md")["re-read?"], 1);
+
+	await startReread(asApp(app), file, settings);
+	check("counter increments", app.frontmatterOf("Reread.md")["re-read?"], 2);
+
+	// Finish it again so it counts, then check both goal modes.
+	await finishBook(asApp(app), file, settings);
+	check("ignored unless enabled", collectGoalTotals(asApp(app), settings).pagesRead, 300);
+
+	const counting = { ...settings, countRereads: true };
+	const totals = collectGoalTotals(asApp(app), counting);
+	check("two re-reads add two more passes", totals.pagesRead, 900);
+	check("re-reads reported", totals.rereads, 2);
+
+	const unread = new FakeApp();
+	unread.add("Once.md", { tags: ["Book"], pages: 300, currentpage: 300, status: "finished" });
+	check(
+		"a book never re-read is unaffected",
+		collectGoalTotals(asApp(unread), counting).pagesRead,
+		300,
+	);
 }
 
 console.log(`\n${checks - failures}/${checks} checks passed`);

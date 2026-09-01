@@ -122,6 +122,54 @@ export class ReadingProgressSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		new Setting(containerEl).setName("Re-reads").setHeading();
+
+		this.text(
+			"Re-read count property",
+			"Frontmatter key counting completed passes through a book.",
+			"rereadProperty",
+			DEFAULT_SETTINGS.rereadProperty,
+		);
+
+		new Setting(containerEl)
+			.setName("Count re-reads toward the goal")
+			.setDesc(
+				"Add one further copy of a book's length to the total for each recorded re-read.",
+			)
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.countRereads).onChange(async (value) => {
+					this.plugin.settings.countRereads = value;
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		new Setting(containerEl).setName("Reading log").setHeading();
+
+		new Setting(containerEl)
+			.setName("Keep a dated reading log")
+			.setDesc(
+				"Write a dated line into the note body whenever the position changes, so reading history survives. One entry per day is rewritten in place. Off by default; it edits note bodies.",
+			)
+			.addToggle((toggle) =>
+				toggle.setValue(this.plugin.settings.enableHistory).onChange(async (value) => {
+					this.plugin.settings.enableHistory = value;
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		this.text(
+			"Log heading",
+			"Heading the log lives under. Created at the end of the note if missing.",
+			"historyHeading",
+			DEFAULT_SETTINGS.historyHeading,
+		);
+		this.text(
+			"Log date format",
+			"Moment.js format, for example YYYY-MM-DD.",
+			"historyDateFormat",
+			DEFAULT_SETTINGS.historyDateFormat,
+		);
+
 		new Setting(containerEl).setName("Appearance").setHeading();
 
 		new Setting(containerEl)

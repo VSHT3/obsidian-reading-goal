@@ -66,6 +66,7 @@ export class GoalBlock extends MarkdownRenderChild {
 					finished: totals.booksFinished.toLocaleString(),
 					inprogress: totals.booksInProgress.toLocaleString(),
 					books: totals.booksTotal.toLocaleString(),
+					rereads: totals.rereads.toLocaleString(),
 					words: (totals.pagesRead * settings.wordsPerPage).toLocaleString(),
 				});
 				text = applied.text;
@@ -100,6 +101,10 @@ export class GoalBlock extends MarkdownRenderChild {
 				`${totals.booksInProgress.toLocaleString()} in progress`,
 				`${totals.booksTotal.toLocaleString()} on the shelf`,
 			];
+			if (settings.countRereads && totals.rereads > 0) {
+				const label = totals.rereads === 1 ? "re-read" : "re-reads";
+				parts.push(`${totals.rereads.toLocaleString()} ${label}`);
+			}
 			if (settings.wordsPerPage > 0) {
 				parts.push(`~${(totals.pagesRead * settings.wordsPerPage).toLocaleString()} words`);
 			}

@@ -11,6 +11,7 @@ import {
 	isTrackable,
 	movePosition,
 	readBookState,
+	startReread,
 	writePosition,
 } from "./progress";
 import { SetPositionModal } from "./set-position-modal";
@@ -168,6 +169,21 @@ export default class ReadingProgressPlugin extends Plugin {
 			name: "Mark book as finished",
 			checkCallback: (checking) =>
 				this.withBook(checking, (file) => finishBook(this.app, file, this.settings)),
+		});
+
+		this.addCommand({
+			id: "start-reread",
+			name: "Start a re-read",
+			checkCallback: (checking) =>
+				this.withBook(checking, async (file) => {
+					const passes = await startReread(this.app, file, this.settings);
+					if (passes !== null) {
+						new Notice(
+							`${file.basename}: starting pass ${passes + 1}, back to page 0.`,
+							5000,
+						);
+					}
+				}),
 		});
 
 		this.addCommand({

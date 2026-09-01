@@ -1,5 +1,6 @@
-import { App, CachedMetadata, Notice, TFile, getAllTags } from "obsidian";
+import { App, CachedMetadata, Notice, TFile, getAllTags, moment } from "obsidian";
 import type { ReadingProgressSettings } from "./settings";
+import { updateLog } from "./history";
 
 /** A book note's reading state, as derived from its frontmatter. */
 export interface BookState {
@@ -95,6 +96,7 @@ async function applyPosition(
 	settings: ReadingProgressSettings,
 ): Promise<number | null> {
 	let written: number | null = null;
+	let previous: number | null = null;
 
 	try {
 		await app.fileManager.processFrontMatter(file, (frontmatter) => {
@@ -126,6 +128,7 @@ async function applyPosition(
 				}
 			}
 
+			previous = current;
 			written = next;
 		});
 	} catch (error) {
@@ -138,7 +141,29 @@ async function applyPosition(
 		return null;
 	}
 
+	if (settings.enableHistory && written !== null && written !== previous) {
+		await recordHistory(app, file, written, settings);
+	}
+
 	return written;
+}
+
+/** Append or refresh today's line in the note's reading log. */
+async function recordHistory(
+	app: App,
+	file: TFile,
+	page: number,
+	settings: ReadingProgressSettings,
+): Promise<void> {
+	const date = moment().format(settings.historyDateFormat);
+	try {
+		await app.vault.process(file, (content) =>
+			updateLog(content, settings.historyHeading, date, page),
+		);
+	} catch (error) {
+		new Notice(`Reading progress: could not write the reading log for ${file.basename}.`, 6000);
+		console.error(error);
+	}
 }
 
 /** Move a note's position by a relative number of pages. */
@@ -170,6 +195,40 @@ export async function finishBook(
 	return applyPosition(app, file, (current, total) => total ?? current, settings);
 }
 
+/**
+ * Begin another pass through a finished book.
+ *
+ * Increments the re-read counter, returns to page zero and marks the book as
+ * being read again, in one transaction so the note is never briefly
+ * inconsistent. The counter is what lets a re-read still contribute to the
+ * goal after the position has been reset.
+ */
+export async function startReread(
+	app: App,
+	file: TFile,
+	settings: ReadingProgressSettings,
+): Promise<number | null> {
+	let passes: number | null = null;
+
+	try {
+		await app.fileManager.processFrontMatter(file, (frontmatter) => {
+			const previous = toCount(frontmatter[settings.rereadProperty]) ?? 0;
+			passes = previous + 1;
+			frontmatter[settings.rereadProperty] = passes;
+			frontmatter[settings.currentPageProperty] = 0;
+			if (settings.autoStatus) {
+				frontmatter[settings.statusProperty] = settings.readingStatus;
+			}
+		});
+	} catch (error) {
+		new Notice(`Reading progress: could not start a re-read of ${file.basename}.`, 6000);
+		console.error(error);
+		return null;
+	}
+
+	return passes;
+}
+
 export interface GoalTotals {
 	/** Pages counted toward the goal. */
 	pagesRead: number;
@@ -179,6 +238,8 @@ export interface GoalTotals {
 	booksInProgress: number;
 	/** Every note carrying the book tag. */
 	booksTotal: number;
+	/** Extra passes counted, when re-reads contribute to the goal. */
+	rereads: number;
 }
 
 /**
@@ -194,6 +255,7 @@ export function collectGoalTotals(app: App, settings: ReadingProgressSettings): 
 		booksFinished: 0,
 		booksInProgress: 0,
 		booksTotal: 0,
+		rereads: 0,
 	};
 
 	for (const file of app.vault.getMarkdownFiles()) {
@@ -209,7 +271,18 @@ export function collectGoalTotals(app: App, settings: ReadingProgressSettings): 
 
 		if (finished) {
 			totals.booksFinished += 1;
-			totals.pagesRead += state.total ?? state.current;
+			const length = state.total ?? state.current;
+			totals.pagesRead += length;
+
+			if (settings.countRereads) {
+				const extra = toCount(
+					cache?.frontmatter?.[settings.rereadProperty],
+				);
+				if (extra && extra > 0) {
+					totals.rereads += extra;
+					totals.pagesRead += length * extra;
+				}
+			}
 			continue;
 		}
 

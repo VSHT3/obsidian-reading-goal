@@ -2,6 +2,8 @@
 
 An Obsidian plugin that tracks reading progress in note properties.
 
+![A goal bar and two book bars in a dashboard note](docs/dashboard.webp)
+
 It renders a progress bar scaled to a book's own page count, moves your position
 from the command palette or a hotkey, keeps the status property in step, and
 totals every book in the vault against a goal.
@@ -93,6 +95,7 @@ usable page count. None ships with a default hotkey; bind what you want.
 | Rewind position by large step | `-5` by default |
 | Set position to a specific page | Opens a prompt |
 | Mark book as finished | Jumps to the last page |
+| Start a re-read | Bumps the re-read count, back to page zero |
 | Insert book progress block | Opens the insert modal |
 | Insert vault goal block | Opens the insert modal |
 | Create books base | Writes `Books.base` and opens it |
@@ -233,11 +236,49 @@ the vault — the rest of the plugin is unaffected.
 Because the base is generated from your settings, regenerate it after renaming
 a property: delete the file and run the command again.
 
+## Re-reads
+
+**Start a re-read** increments the re-read count property, returns the note to
+page zero and marks it as being read again — all in one write, so the note is
+never briefly inconsistent.
+
+With **Count re-reads toward the goal** on, each recorded pass adds another
+copy of the book's length to the total. A 310-page book read twice is worth
+620. Off by default, so the goal counts distinct books unless you say
+otherwise.
+
+The property defaults to `re-read?`, matching the key the Book Search template
+already writes.
+
+## Reading log
+
+A single `currentpage` cannot answer "what did I read in March". Turn on
+**Keep a dated reading log** and every position change also writes a dated
+line into the note body:
+
+```markdown
+## Reading log
+
+- 2026-08-30: 120
+- 2026-09-01: 205
+```
+
+One entry per day, **rewritten in place** — holding a hotkey produces one line,
+not forty. A write that changes nothing writes nothing. The section is created
+at the end of the note when missing, matched case-insensitively at any heading
+level, and content below a later heading is never disturbed.
+
+Off by default, because it edits note bodies rather than only frontmatter.
+
+The heading and date format are configurable; the date uses Moment.js
+formatting, the same as core Obsidian.
+
 ## Settings
 
 Property names (`pages`, `currentpage`, `status`, book tag), the three status
 values, both step sizes, the page goal, words per page, whether in-progress
-books count, and whether the percentage, buttons and rewind buttons are shown.
+books count, whether re-reads count, the reading-log heading and date format,
+and whether the percentage, buttons and rewind buttons are shown.
 
 ## Development
 
@@ -251,7 +292,7 @@ npm test        # behavioural tests, no Obsidian required
 `npm test` runs the real plugin logic against an in-memory stand-in for the
 Obsidian APIs (`test/obsidian-stub.ts`), covering property coercion, clamping,
 status transitions, malformed-frontmatter handling, concurrent repeated moves,
-and goal aggregation.
+goal aggregation, re-read counting, and the reading-log editor.
 
 To install locally, copy `main.js`, `manifest.json` and `styles.css` into
 `<vault>/.obsidian/plugins/reading-progress/`.

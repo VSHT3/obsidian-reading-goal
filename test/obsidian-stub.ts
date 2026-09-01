@@ -33,6 +33,13 @@ export function getAllTags(cache: CachedMetadata): string[] | null {
 	return list.map((tag) => `#${String(tag).replace(/^#/, "")}`);
 }
 
+/** Fixed clock, so log dates are deterministic in tests. */
+export const FIXED_DATE = "2026-09-01";
+
+export function moment(): { format: (pattern: string) => string } {
+	return { format: () => FIXED_DATE };
+}
+
 /** A vault of in-memory notes with frontmatter, mimicking the real APIs. */
 export class FakeApp {
 	private readonly files = new Map<string, Record<string, unknown>>();
@@ -57,8 +64,24 @@ export class FakeApp {
 		},
 	};
 
+	/** Note bodies, keyed by path. Only touched by the reading log. */
+	private readonly bodies = new Map<string, string>();
+
+	body(path: string): string {
+		return this.bodies.get(path) ?? "";
+	}
+
+	setBody(path: string, content: string): void {
+		this.bodies.set(path, content);
+	}
+
 	readonly vault = {
 		getMarkdownFiles: (): TFile[] => [...this.files.keys()].map((path) => new TFile(path)),
+		process: async (file: TFile, fn: (content: string) => string): Promise<string> => {
+			const next = fn(this.bodies.get(file.path) ?? "");
+			this.bodies.set(file.path, next);
+			return next;
+		},
 	};
 
 	readonly fileManager = {

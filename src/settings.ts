@@ -35,6 +35,18 @@ export interface ReadingProgressSettings {
 	showButtons: boolean;
 	/** Include the rewind buttons alongside the advance buttons. */
 	showMinusButtons: boolean;
+
+	/** Append a dated line to the note body on every position change. */
+	enableHistory: boolean;
+	/** Heading the reading log lives under. */
+	historyHeading: string;
+	/** Moment format for log dates. */
+	historyDateFormat: string;
+
+	/** Frontmatter key counting completed re-reads. */
+	rereadProperty: string;
+	/** Add re-read passes to the goal total. */
+	countRereads: boolean;
 }
 
 export const DEFAULT_SETTINGS: ReadingProgressSettings = {
@@ -58,4 +70,11 @@ export const DEFAULT_SETTINGS: ReadingProgressSettings = {
 	showPercentage: true,
 	showButtons: true,
 	showMinusButtons: true,
+
+	enableHistory: false,
+	historyHeading: "Reading log",
+	historyDateFormat: "YYYY-MM-DD",
+
+	rereadProperty: "re-read?",
+	countRereads: false,
 };
