@@ -1,9 +1,9 @@
 {
-	"id": "reading-progress",
-	"name": "Reading Progress",
-	"version": "1.1.1",
+	"id": "reading-goal",
+	"name": "Reading Goal",
+	"version": "1.2.0",
 	"minAppVersion": "1.10.0",
-	"description": "Track reading progress in note properties. Renders a progress bar scaled to a book's page count, with commands to advance your position and a vault-wide goal tracker.",
+	"description": "Set a page goal and track progress toward it. Renders a progress bar scaled to each book's page count, with commands to advance your position.",
 	"author": "vsht",
 	"isDesktopOnly": false
 }

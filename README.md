@@ -1,6 +1,7 @@
-# Reading Progress
+# Reading Goal
 
-An Obsidian plugin that tracks reading progress in note properties.
+An Obsidian plugin that tracks reading progress in note properties and totals it
+against a page goal.
 
 ![A goal bar and two book bars in a dashboard note](docs/dashboard.webp)
 
@@ -295,7 +296,7 @@ status transitions, malformed-frontmatter handling, concurrent repeated moves,
 goal aggregation, re-read counting, and the reading-log editor.
 
 To install locally, copy `main.js`, `manifest.json` and `styles.css` into
-`<vault>/.obsidian/plugins/reading-progress/`.
+`<vault>/.obsidian/plugins/reading-goal/`.
 
 ## Licence
 
