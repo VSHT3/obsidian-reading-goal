@@ -1,16 +1,20 @@
 # Reading Goal
 
-Track where you are in each book, and how far you are toward a page goal, from the properties in your Obsidian notes.
+Track how far you are through each book, and how far you are toward a goal, from the properties in your Obsidian notes. It is built for reading, and works for anything with a total and a current number.
 
 ![A dashboard note with a goal bar and two books in progress](docs/dashboard.webp)
 
 Reading Goal reads a book note's length and your current page from its properties and draws a progress bar from them. Buttons, commands and hotkeys move the page number, and the status property is updated as you start and finish a book. A second block adds up every book in the vault against a goal you set.
 
-Your reading data stays in plain properties in your own notes. The plugin works without Dataview, Meta Bind or any other community plugin.
+Your data stays in plain properties in your own notes. The plugin works without Dataview, Meta Bind or any other community plugin.
+
+Books are the starting point, but nothing in the plugin depends on them. The property names, the tag and the label text can all be changed, so the same bar can count lectures in a course, episodes of a show or chapters of a draft. See [Tracking other things](#tracking-other-things).
 
 ## Install
 
-Reading Goal is not in the community plugin directory yet. Until it is, install it with BRAT or by hand. It needs Obsidian 1.10 or later.
+Reading Goal has a page in the [Obsidian community directory](https://community.obsidian.md/plugins/reading-goal), with an **Add to Obsidian** button. It needs Obsidian 1.10 or later.
+
+If it does not come up yet when you search for it under Settings → Community plugins → Browse, install it with BRAT or by hand.
 
 **With BRAT**
 
@@ -178,6 +182,22 @@ file: Perdido Street Station
 ````
 
 The dashboard at the top of this page is built this way.
+
+## Tracking other things
+
+A progress block needs two numbers in a note: a total and a current position. Which properties hold them is up to you, and so is the text above the bar. A block can name its own properties, so one vault can hold books next to other things:
+
+````markdown
+```reading-progress
+pages: lectures
+current: watched
+label: Lecture {current} of {total}
+```
+````
+
+In a note with `lectures: 24` and `watched: 9`, this draws a bar at 38% with the same step buttons. Moving the position still writes the status property, unless **Update status automatically** is off.
+
+The names set on a block apply to that block and its buttons. The commands, the status bar, the goal total and the books base use the tag and property names from settings. To use those for something other than books, change the names under Settings → Reading Goal → Book notes.
 
 ## The books base
 

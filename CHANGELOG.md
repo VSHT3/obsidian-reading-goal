@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.2
+
+- New plugin description and README: the plugin tracks anything with a total and a current number, and the install steps point at the community directory. No code changes.
+
 ## 1.3.1
 
 - Typed the frontmatter and settings the plugin reads, which clears most of the directory review's warnings. Nothing changes in use.

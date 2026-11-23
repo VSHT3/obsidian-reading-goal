@@ -1,9 +1,9 @@
 {
 	"id": "reading-goal",
 	"name": "Reading Goal",
-	"version": "1.3.1",
+	"version": "1.3.2",
 	"minAppVersion": "1.10.0",
-	"description": "Set a page goal and track progress toward it. Renders a progress bar scaled to each book's page count, with commands to advance your position.",
+	"description": "Track progress through books, or anything with a total and a current number. Draws a progress bar from note properties, moves it with buttons and hotkeys, and adds everything up against a goal.",
 	"author": "vsht",
 	"isDesktopOnly": false
 }
