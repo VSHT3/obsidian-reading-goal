@@ -2,6 +2,9 @@ import { App, CachedMetadata, Notice, TFile, getAllTags, moment } from "obsidian
 import type { ReadingProgressSettings } from "./settings";
 import { updateLog } from "./history";
 
+/** Obsidian hands frontmatter over as `any`; nothing in it can be assumed. */
+type Frontmatter = Record<string, unknown>;
+
 /** A book note's reading state, as derived from its frontmatter. */
 export interface BookState {
 	/** Total length, or null when the note does not declare a usable page count. */
@@ -37,7 +40,7 @@ export function readBookState(
 	const frontmatter = cache?.frontmatter;
 	const total = toCount(frontmatter?.[settings.pagesProperty]);
 	const current = toCount(frontmatter?.[settings.currentPageProperty]) ?? 0;
-	const rawStatus = frontmatter?.[settings.statusProperty];
+	const rawStatus: unknown = frontmatter?.[settings.statusProperty];
 
 	const bounded = total !== null && total > 0 ? Math.min(current, total) : current;
 	const fraction = total !== null && total > 0 ? bounded / total : 0;
@@ -99,7 +102,7 @@ async function applyPosition(
 	let previous: number | null = null;
 
 	try {
-		await app.fileManager.processFrontMatter(file, (frontmatter) => {
+		await app.fileManager.processFrontMatter(file, (frontmatter: Frontmatter) => {
 			const total = toCount(frontmatter[settings.pagesProperty]);
 			const current = toCount(frontmatter[settings.currentPageProperty]) ?? 0;
 			const upper = total !== null && total > 0 ? total : Number.MAX_SAFE_INTEGER;
@@ -211,7 +214,7 @@ export async function startReread(
 	let passes: number | null = null;
 
 	try {
-		await app.fileManager.processFrontMatter(file, (frontmatter) => {
+		await app.fileManager.processFrontMatter(file, (frontmatter: Frontmatter) => {
 			const previous = toCount(frontmatter[settings.rereadProperty]) ?? 0;
 			passes = previous + 1;
 			frontmatter[settings.rereadProperty] = passes;
@@ -376,7 +379,7 @@ export async function trackBook(
 	settings: ReadingProgressSettings,
 ): Promise<boolean> {
 	try {
-		await app.fileManager.processFrontMatter(file, (frontmatter) => {
+		await app.fileManager.processFrontMatter(file, (frontmatter: Frontmatter) => {
 			const wanted = settings.bookTag.replace(/^#/, "");
 			const raw: unknown = frontmatter.tags;
 			// A tags value may be a list or a comma- or space-separated string.

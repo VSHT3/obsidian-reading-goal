@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1
+
+- Typed the frontmatter and settings the plugin reads, which clears most of the directory review's warnings. Nothing changes in use.
+
 ## 1.3.0
 
 ### Added

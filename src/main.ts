@@ -204,10 +204,12 @@ export default class ReadingProgressPlugin extends Plugin {
 		);
 		menu.addSeparator();
 		add("Settings", "settings", () => {
-			// @ts-expect-error setting is not in the public API but is stable
-			this.app.setting.open();
-			// @ts-expect-error as above
-			this.app.setting.openTabById(this.manifest.id);
+			// The settings modal is not in the public API, but is stable.
+			const { setting } = this.app as typeof this.app & {
+				setting: { open(): void; openTabById(id: string): void };
+			};
+			setting.open();
+			setting.openTabById(this.manifest.id);
 		});
 
 		menu.showAtMouseEvent(event);
@@ -399,7 +401,8 @@ export default class ReadingProgressPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const stored = (await this.loadData()) as Partial<ReadingProgressSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, stored);
 	}
 
 	async saveSettings(): Promise<void> {

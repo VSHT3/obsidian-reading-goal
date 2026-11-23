@@ -17,16 +17,22 @@ export default tseslint.config(
 			},
 		},
 		rules: {
-			// Obsidian types frontmatter as `any`, so the unsafe-* family fires
-			// on every property read without indicating a real problem.
-			"@typescript-eslint/no-explicit-any": "off",
-			"@typescript-eslint/no-unsafe-assignment": "off",
-			"@typescript-eslint/no-unsafe-member-access": "off",
-			"@typescript-eslint/no-unsafe-call": "off",
 			// Declare the proper nouns rather than switching the rule off: the
 			// directory's own scan ignores this config, so silencing it here
 			// would only remove the local signal.
 			"obsidianmd/ui/sentence-case": ["warn", { brands: ["Bases", "Books.base"] }],
+		},
+	},
+	{
+		// The directory's scan reports the unsafe-* family on plugin code, so
+		// it is on here too. Frontmatter arrives as `any` and is typed at the
+		// boundary.
+		files: ["src/**/*.ts"],
+		rules: {
+			"@typescript-eslint/no-unsafe-assignment": "warn",
+			"@typescript-eslint/no-unsafe-member-access": "warn",
+			"@typescript-eslint/no-unsafe-call": "warn",
+			"@typescript-eslint/no-unsafe-argument": "warn",
 		},
 	},
 	{
