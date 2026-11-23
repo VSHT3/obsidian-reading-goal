@@ -2,6 +2,8 @@ import { MarkdownRenderChild, debounce } from "obsidian";
 import type ReadingProgressPlugin from "./main";
 import { formatPercent, renderBar } from "./bar";
 import { goalOptions } from "./block-options";
+import { describeGoalPace, goalPace, parseDeadline } from "./pace";
+import type { GoalTokens } from "./labels";
 import { collectGoalTotals } from "./progress";
 import { applyTemplate } from "./template";
 
@@ -44,7 +46,7 @@ export class GoalBlock extends MarkdownRenderChild {
 		if (goal <= 0) {
 			root.createDiv({
 				cls: "reading-progress-empty",
-				text: "Reading progress: set a page goal in the plugin settings, or with a goal option in this block.",
+				text: "Reading Goal: set a page goal in the plugin settings, or with a goal option in this block.",
 			});
 			return;
 		}
@@ -52,13 +54,18 @@ export class GoalBlock extends MarkdownRenderChild {
 		const fraction = totals.pagesRead / goal;
 		const reached = totals.pagesRead >= goal;
 
+		const deadline = parseDeadline(settings.goalDeadline);
+		const pace = deadline ? goalPace(totals.pagesRead, goal, deadline, new Date()) : null;
+
 		const unknown = [...options.unknown];
 
 		if (options.label.kind !== "hidden") {
+			const template =
+				options.label.kind === "custom" ? options.label.template : settings.goalLabel;
 			let text: string;
 
-			if (options.label.kind === "custom") {
-				const applied = applyTemplate(options.label.template, {
+			if (template.length > 0) {
+				const values: GoalTokens = {
 					read: totals.pagesRead.toLocaleString(),
 					goal: goal.toLocaleString(),
 					remaining: Math.max(goal - totals.pagesRead, 0).toLocaleString(),
@@ -68,7 +75,11 @@ export class GoalBlock extends MarkdownRenderChild {
 					books: totals.booksTotal.toLocaleString(),
 					rereads: totals.rereads.toLocaleString(),
 					words: (totals.pagesRead * settings.wordsPerPage).toLocaleString(),
-				});
+					deadline: deadline ? settings.goalDeadline : "",
+					daysleft: pace ? Math.max(pace.daysLeft, 0).toLocaleString() : "",
+					pace: pace ? pace.perDay.toLocaleString() : "",
+				};
+				const applied = applyTemplate(template, values);
 				text = applied.text;
 				unknown.push(...applied.unknown);
 			} else {
@@ -83,10 +94,10 @@ export class GoalBlock extends MarkdownRenderChild {
 		renderBar(root, {
 			fraction,
 			complete: reached,
-			label: "",
 			ariaLabel: "Progress toward page goal",
 			valueNow: totals.pagesRead,
 			valueMax: goal,
+			settings,
 			color: options.color,
 			height: options.height,
 		});
@@ -110,12 +121,23 @@ export class GoalBlock extends MarkdownRenderChild {
 			}
 			root.createDiv({ cls: "reading-progress-meta", text: parts.join(" \u00b7 ") });
 
+			if (pace && !reached) {
+				root.createDiv({ cls: "reading-progress-meta", text: describeGoalPace(pace) });
+			}
+
 			if (!settings.countBooksInProgress && totals.booksInProgress > 0) {
 				root.createDiv({
 					cls: "reading-progress-meta",
 					text: "Pages from unfinished books are excluded.",
 				});
 			}
+		}
+
+		if (settings.goalDeadline.length > 0 && !deadline) {
+			root.createDiv({
+				cls: "reading-progress-empty",
+				text: `Ignored deadline "${settings.goalDeadline}": write it as YYYY-MM-DD.`,
+			});
 		}
 
 		if (unknown.length > 0) {

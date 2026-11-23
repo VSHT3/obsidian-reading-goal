@@ -3,6 +3,7 @@ import { NoteSuggest } from "./book-suggest";
 import { isBookNote } from "./progress";
 import type ReadingProgressPlugin from "./main";
 import { GOAL_BLOCK, PROGRESS_BLOCK } from "./block-ids";
+import { GOAL_TOKENS, PROGRESS_TOKENS, tokenList } from "./labels";
 
 type BlockKind = "progress" | "goal";
 
@@ -10,6 +11,7 @@ interface Draft {
 	kind: BlockKind;
 	buttons: boolean;
 	minus: boolean;
+	set: boolean;
 	percent: boolean;
 	label: boolean;
 	labelText: string;
@@ -23,6 +25,7 @@ interface Draft {
 	tag: string;
 	words: number;
 	inProgress: boolean;
+	deadline: string;
 }
 
 /**
@@ -48,10 +51,11 @@ export class InsertBlockModal extends Modal {
 			kind,
 			buttons: s.showButtons,
 			minus: s.showMinusButtons,
+			set: s.showSetButton,
 			percent: s.showPercentage,
 			label: true,
 			labelText: "",
-			details: true,
+			details: s.showDetails,
 			smallStep: s.smallStep,
 			largeStep: s.largeStep,
 			color: "",
@@ -61,11 +65,12 @@ export class InsertBlockModal extends Modal {
 			tag: s.bookTag,
 			words: s.wordsPerPage,
 			inProgress: s.countBooksInProgress,
+			deadline: s.goalDeadline,
 		};
 	}
 
 	onOpen(): void {
-		this.setTitle("Insert reading progress block");
+		this.setTitle("Insert block");
 
 		new Setting(this.contentEl)
 			.setName("Block")
@@ -130,6 +135,16 @@ export class InsertBlockModal extends Modal {
 					}),
 				);
 
+			new Setting(body)
+				.setName("Page button")
+				.setDesc("Opens a prompt for an exact page.")
+				.addToggle((t) =>
+					t.setValue(this.draft.set).onChange((v) => {
+						this.draft.set = v;
+						refresh();
+					}),
+				);
+
 			new Setting(body).setName("Step sizes").addText((t) =>
 				t
 					.setPlaceholder("Small")
@@ -176,6 +191,19 @@ export class InsertBlockModal extends Modal {
 				}),
 			);
 
+			new Setting(body)
+				.setName("Deadline")
+				.setDesc("Written like 2026-12-31. Empty for none.")
+				.addText((t) =>
+					t
+						.setPlaceholder("2026-12-31")
+						.setValue(this.draft.deadline)
+						.onChange((v) => {
+							this.draft.deadline = v.trim();
+							refresh();
+						}),
+				);
+
 			new Setting(body).setName("Book tag").addText((t) =>
 				t.setValue(this.draft.tag).onChange((v) => {
 					this.draft.tag = v.trim() || this.plugin.settings.bookTag;
@@ -214,10 +242,7 @@ export class InsertBlockModal extends Modal {
 			);
 
 		if (this.draft.label) {
-			const tokens =
-				this.draft.kind === "progress"
-					? "{current} {total} {remaining} {percent} {title} {status} {words}"
-					: "{read} {goal} {remaining} {percent} {finished} {inprogress} {books} {words}";
+			const tokens = tokenList(this.draft.kind === "progress" ? PROGRESS_TOKENS : GOAL_TOKENS);
 
 			new Setting(body)
 				.setName("Custom label")
@@ -248,20 +273,26 @@ export class InsertBlockModal extends Modal {
 			.setName("Bar colour")
 			.setDesc("Any CSS colour. Empty uses the theme accent.")
 			.addText((t) =>
-				t.setPlaceholder("#00A5FF").onChange((v) => {
-					this.draft.color = v.trim();
-					refresh();
-				}),
+				t
+					.setPlaceholder("#00A5FF")
+					.setValue(this.draft.color)
+					.onChange((v) => {
+						this.draft.color = v.trim();
+						refresh();
+					}),
 			);
 
 		new Setting(body)
 			.setName("Bar height")
 			.setDesc("Pixels. Zero uses the default.")
 			.addText((t) =>
-				t.setPlaceholder("10").onChange((v) => {
-					this.draft.height = Number.parseInt(v, 10) || 0;
-					refresh();
-				}),
+				t
+					.setPlaceholder("10")
+					.setValue(this.draft.height > 0 ? String(this.draft.height) : "")
+					.onChange((v) => {
+						this.draft.height = Number.parseInt(v, 10) || 0;
+						refresh();
+					}),
 			);
 
 		this.updatePreview();
@@ -276,13 +307,15 @@ export class InsertBlockModal extends Modal {
 			if (d.file) lines.push(`file: ${d.file}`);
 			if (d.buttons !== s.showButtons) lines.push(`buttons: ${d.buttons}`);
 			if (d.minus !== s.showMinusButtons) lines.push(`minus: ${d.minus}`);
+			if (d.set !== s.showSetButton) lines.push(`set: ${d.set}`);
 			if (d.smallStep !== s.smallStep) lines.push(`small: ${d.smallStep}`);
 			if (d.largeStep !== s.largeStep) lines.push(`large: ${d.largeStep}`);
 		} else {
 			if (d.goal !== s.pageGoal) lines.push(`goal: ${d.goal}`);
+			if (d.deadline !== s.goalDeadline) lines.push(`deadline: ${d.deadline || "none"}`);
 			if (d.tag !== s.bookTag) lines.push(`tag: ${d.tag}`);
 			if (d.inProgress !== s.countBooksInProgress) lines.push(`inprogress: ${d.inProgress}`);
-			if (!d.details) lines.push("details: false");
+			if (d.details !== s.showDetails) lines.push(`details: ${d.details}`);
 		}
 
 		if (!d.label) lines.push("label: false");

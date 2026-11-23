@@ -66,10 +66,10 @@ export class ReadingProgressBasesView extends BasesView {
 				renderBar(barCell, {
 					fraction: state.fraction,
 					complete: state.current >= state.total,
-					label: "",
 					ariaLabel: `Reading progress for ${entry.file.basename}`,
 					valueNow: state.current,
 					valueMax: state.total,
+					settings,
 				});
 
 				row.createDiv({

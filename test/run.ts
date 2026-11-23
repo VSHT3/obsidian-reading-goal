@@ -2,6 +2,9 @@ import { FakeApp, FIXED_DATE, notices } from "./obsidian-stub";
 import type { App } from "obsidian";
 import {
 	collectGoalTotals,
+	listBooks,
+	parsePositionInput,
+	trackBook,
 	isBookNote,
 	isTrackable,
 	finishBook,
@@ -13,7 +16,9 @@ import {
 import { DEFAULT_SETTINGS } from "../src/settings";
 import { goalOptions, parseOptions, progressOptions } from "../src/block-options";
 import { applyTemplate } from "../src/template";
-import { updateLog } from "../src/history";
+import { readLog, updateLog } from "../src/history";
+import { bookPace, describeGoalPace, formatPerDay, goalPace, parseDeadline } from "../src/pace";
+import { GOAL_TOKENS, PROGRESS_TOKENS, progressLabel, unknownTokens } from "../src/labels";
 
 const settings = { ...DEFAULT_SETTINGS, pageGoal: 1000, wordsPerPage: 400 };
 
@@ -409,6 +414,195 @@ section("Re-reads");
 		collectGoalTotals(asApp(unread), counting).pagesRead,
 		300,
 	);
+
+	// A second pass under way: the first is complete and must stay counted.
+	const midway = new FakeApp();
+	const again = midway.add("Again.md", {
+		tags: ["Book"],
+		pages: 300,
+		currentpage: 300,
+		status: "finished",
+	});
+	await startReread(asApp(midway), again, settings);
+	check(
+		"starting a re-read does not lower the total",
+		collectGoalTotals(asApp(midway), settings).pagesRead,
+		300,
+	);
+	await movePosition(asApp(midway), again, 120, settings);
+	check(
+		"counting distinct books, the second pass adds nothing",
+		collectGoalTotals(asApp(midway), settings).pagesRead,
+		300,
+	);
+	const partway = collectGoalTotals(asApp(midway), counting);
+	check("counting re-reads, the second pass adds its pages", partway.pagesRead, 420);
+	check("an unfinished pass is not reported as a re-read", partway.rereads, 0);
+	check("the book shows as in progress", [partway.booksInProgress, partway.booksFinished], [1, 0]);
+}
+
+section("Page prompt input");
+{
+	check("absolute page", parsePositionInput("120", 30, 435), 120);
+	check("relative advance", parsePositionInput("+15", 30, 435), 45);
+	check("relative rewind", parsePositionInput("- 5", 30, 435), 25);
+	check("percentage", parsePositionInput("50%", 30, 400), 200);
+	check("clamped to the last page", parsePositionInput("+999", 30, 435), 435);
+	check("clamped to zero", parsePositionInput("-999", 30, 435), 0);
+	check("empty input is refused", parsePositionInput("", 30, 435), null);
+	check("words are refused", parsePositionInput("12 pages", 30, 435), null);
+}
+
+section("Tracking a plain note");
+{
+	const app = new FakeApp();
+	const file = app.add("Plain.md", { tags: "Fiction, Review" });
+	check("write succeeds", await trackBook(asApp(app), file, 300, 40, settings), true);
+	const written = app.frontmatterOf("Plain.md");
+	check("tag appended to a string list", written.tags, ["Fiction", "Review", "Book"]);
+	check("length and position written", [written.pages, written.currentpage], [300, 40]);
+	check("blank status becomes reading", written.status, "reading");
+	check(
+		"now counts as a trackable book",
+		[
+			isBookNote(app.metadataCache.getFileCache(file), settings),
+			isTrackable(app.metadataCache.getFileCache(file), settings),
+		],
+		[true, true],
+	);
+
+	const tagged = app.add("Tagged.md", { tags: ["book"], status: "abandoned" });
+	await trackBook(asApp(app), tagged, 200, 999, settings);
+	const kept = app.frontmatterOf("Tagged.md");
+	check("existing tag is not duplicated", kept.tags, ["book"]);
+	check("position clamped to the length", kept.currentpage, 200);
+	check("existing status is left alone", kept.status, "abandoned");
+}
+
+section("Book picker order");
+{
+	const app = new FakeApp();
+	app.add("Zebra unread.md", { tags: ["Book"], pages: 100 });
+	app.add("Done.md", { tags: ["Book"], pages: 100, currentpage: 100 });
+	app.add("Apple unread.md", { tags: ["Book"], pages: 100, currentpage: 0 });
+	app.add("Halfway.md", { tags: ["Book"], pages: 100, currentpage: 50 });
+	app.add("No length.md", { tags: ["Book"], currentpage: 5 });
+	app.add("Not a book.md", { pages: 100, currentpage: 5 });
+	check(
+		"in progress, then unread by name, then finished",
+		listBooks(asApp(app), settings).map((book) => book.file.basename),
+		["Halfway", "Apple unread", "Zebra unread", "Done"],
+	);
+}
+
+section("Goal deadline");
+{
+	const now = new Date(2026, 10, 23, 15, 30);
+	check("malformed date is refused", parseDeadline("23/11/2026"), null);
+	check("overflowing date is refused", parseDeadline("2026-02-31"), null);
+
+	const pace = goalPace(400, 1000, parseDeadline("2026-12-02") as Date, now);
+	check("days left", pace.daysLeft, 9);
+	check("today and the deadline both count as reading days", pace.perDay, 60);
+	check(
+		"described",
+		describeGoalPace(pace),
+		"9 days left \u00b7 60 pages a day to finish on time",
+	);
+
+	const today = goalPace(400, 1000, parseDeadline("2026-11-23") as Date, now);
+	check("a deadline of today leaves the whole remainder", [today.daysLeft, today.perDay], [0, 600]);
+
+	const late = goalPace(400, 1000, parseDeadline("2026-11-20") as Date, now);
+	check("a passed deadline is reported", describeGoalPace(late), "Deadline passed 3 days ago \u00b7 600 pages short");
+
+	check(
+		"block deadline overrides the setting",
+		goalOptions("deadline: 2027-01-01", { ...settings, goalDeadline: "2026-12-31" }).settings.goalDeadline,
+		"2027-01-01",
+	);
+	check(
+		"deadline: none drops the setting's deadline",
+		goalOptions("deadline: none", { ...settings, goalDeadline: "2026-12-31" }).settings.goalDeadline,
+		"",
+	);
+}
+
+section("Reading pace");
+{
+	const note = "---\npages: 400\n---\n\n## Reading log\n\n- 2026-08-28: 40\n- 2026-08-30: 120\nnot an entry\n- 2026-09-01: 200\n\n## Notes\n\n- 2026-09-02: 999\n";
+	check("log entries read back, stopping at the next heading", readLog(note, "Reading log"), [
+		{ date: "2026-08-28", page: 40 },
+		{ date: "2026-08-30", page: 120 },
+		{ date: "2026-09-01", page: 200 },
+	]);
+	check("a note without a log has no entries", readLog("# Title\n", "Reading log"), []);
+
+	const pace = bookPace(
+		[
+			{ daysAgo: 4, page: 40 },
+			{ daysAgo: 2, page: 120 },
+			{ daysAgo: 0, page: 200 },
+		],
+		200,
+		400,
+	);
+	check("pages a day since the first entry", pace?.perDay, 40);
+	check("days left at that pace", pace?.daysLeft, 5);
+
+	check("one day of entries is not enough", bookPace([{ daysAgo: 0, page: 200 }], 200, 400), null);
+	check(
+		"only the current pass counts after a re-read",
+		bookPace(
+			[
+				{ daysAgo: 20, page: 100 },
+				{ daysAgo: 10, page: 400 },
+				{ daysAgo: 2, page: 10 },
+				{ daysAgo: 0, page: 50 },
+			],
+			50,
+			400,
+		)?.perDay,
+		20,
+	);
+	check(
+		"entries older than the window are ignored",
+		bookPace([{ daysAgo: 90, page: 10 }, { daysAgo: 1, page: 100 }], 130, 400)?.perDay,
+		30,
+	);
+	check("slow paces keep a decimal", formatPerDay(2.26), "2.3 pages a day");
+}
+
+section("Settings as defaults for blocks");
+{
+	const custom = { ...settings, showSetButton: false, showDetails: false };
+	check("page button follows the setting", progressOptions("", custom).showSet, false);
+	check("a block can turn it back on", progressOptions("set: true", custom).showSet, true);
+	check("goal details follow the setting", goalOptions("", custom).showDetails, false);
+	check("a block can turn them back on", goalOptions("details: true", custom).showDetails, true);
+
+	const state = { total: 688, current: 349, status: "reading", fraction: 349 / 688 };
+	check(
+		"empty label template gives the built-in wording",
+		progressLabel("", state, "Dune", 400).text,
+		"Page 349 of 688.",
+	);
+	check(
+		"built-in wording names another note's book",
+		progressLabel("", { ...state, current: 688 }, "Dune", 400, "Dune \u2014 ").text,
+		"Dune \u2014 Finished \u2014 all 688 pages.",
+	);
+	check(
+		"label template from settings is applied",
+		progressLabel("{title}: {remaining} left", state, "Dune", 400).text,
+		"Dune: 339 left",
+	);
+	check(
+		"a mistyped placeholder is caught before it is saved",
+		unknownTokens("{title} {totl} {pace}", PROGRESS_TOKENS),
+		["{totl}", "{pace}"],
+	);
+	check("goal placeholders validate against their own list", unknownTokens("{read} {pace}", GOAL_TOKENS), []);
 }
 
 console.log(`\n${checks - failures}/${checks} checks passed`);

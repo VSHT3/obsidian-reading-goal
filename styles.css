@@ -129,3 +129,89 @@
 	color: var(--text-faint);
 	font-size: var(--font-ui-smaller);
 }
+
+/* Page and setup prompts */
+.reading-progress-modal-steps {
+	justify-content: flex-end;
+	margin-top: var(--size-4-2);
+}
+
+.reading-progress-modal-preview {
+	margin: var(--size-4-3) 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+
+.reading-progress-modal-preview.is-invalid {
+	color: var(--text-error);
+}
+
+.reading-progress-status {
+	gap: var(--size-2-2);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Touch: every control a full-height tap target, sharing the row evenly. */
+.is-mobile .reading-progress-buttons {
+	gap: var(--size-4-2);
+}
+
+.is-mobile .reading-progress-button {
+	flex: 1 1 3.5em;
+	min-height: 44px;
+}
+
+.is-phone .reading-progress-bases-row {
+	grid-template-columns: 1fr auto auto;
+}
+
+.is-phone .reading-progress-bases-title {
+	grid-column: 1 / -1;
+}
+
+/* Settings tab */
+.reading-progress-setting-error {
+	margin-top: var(--size-2-2);
+	color: var(--text-error);
+	font-size: var(--font-ui-smaller);
+}
+
+.reading-progress-setting-invalid input {
+	border-color: var(--text-error);
+}
+
+.reading-progress-setting-sample {
+	margin-top: var(--size-2-2);
+}
+
+.reading-progress-setting-wide {
+	width: 22em;
+	max-width: 100%;
+}
+
+.reading-progress-setting-result {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	text-align: right;
+}
+
+.reading-progress-setting-result.is-empty {
+	color: var(--text-warning);
+}
+
+.reading-progress-setting-preview .setting-item-control {
+	flex: 1 1 55%;
+}
+
+.reading-progress-setting-preview .reading-progress {
+	width: 100%;
+	padding: 0;
+	text-align: left;
+}
+
+/* Equal-width counts keep every row's bar the same length. */
+.reading-progress-bases-count {
+	min-width: 7.5em;
+}

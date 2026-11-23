@@ -1,9 +1,13 @@
-import { MarkdownRenderChild, TFile } from "obsidian";
+import { MarkdownRenderChild, TFile, moment } from "obsidian";
 import type ReadingProgressPlugin from "./main";
 import { formatPercent, renderBar } from "./bar";
 import { progressOptions, type ProgressOptions } from "./block-options";
-import { applyTemplate } from "./template";
-import { movePosition, readBookState } from "./progress";
+import { readLog } from "./history";
+import { bookPace, formatPerDay, plural } from "./pace";
+import { progressLabel } from "./labels";
+import { movePosition, readBookState, type BookState } from "./progress";
+import { SetPositionModal } from "./set-position-modal";
+import { TrackBookModal } from "./track-book-modal";
 
 /**
  * The per-note progress bar.
@@ -18,6 +22,8 @@ export class ProgressBlock extends MarkdownRenderChild {
 	private readonly plugin: ReadingProgressPlugin;
 	private readonly sourcePath: string;
 	private readonly source: string;
+	/** Bumped on every repaint, so a slow log read cannot fill a stale one. */
+	private generation = 0;
 
 	constructor(
 		containerEl: HTMLElement,
@@ -58,6 +64,7 @@ export class ProgressBlock extends MarkdownRenderChild {
 		const options = progressOptions(this.source, this.plugin.settings);
 		const settings = options.settings;
 		const root = this.containerEl;
+		const generation = ++this.generation;
 		root.empty();
 		root.addClass("reading-progress");
 
@@ -66,58 +73,55 @@ export class ProgressBlock extends MarkdownRenderChild {
 			root.createDiv({
 				cls: "reading-progress-empty",
 				text: options.file
-					? `Reading progress: no note named "${options.file}".`
-					: "Reading progress: note not found.",
+					? `Reading Goal: no note named "${options.file}".`
+					: "Reading Goal: note not found.",
 			});
 			return;
 		}
 
 		const state = readBookState(this.plugin.app.metadataCache.getFileCache(file), settings);
+		const total = state.total;
 
-		if (state.total === null || state.total === 0) {
+		if (total === null || total === 0) {
 			root.createDiv({
 				cls: "reading-progress-empty",
-				text: `Reading progress: set a numeric "${settings.pagesProperty}" property on ${file.basename}.`,
+				text: `${file.basename} has no numeric "${settings.pagesProperty}" property yet.`,
+			});
+			const setup = root
+				.createDiv({ cls: "reading-progress-buttons" })
+				.createEl("button", { text: "Set up as a book", cls: "reading-progress-button" });
+			this.registerDomEvent(setup, "click", () => {
+				new TrackBookModal(this.plugin.app, file, settings).open();
 			});
 			this.renderUnknown(root, options.unknown);
 			return;
 		}
 
-		const complete = state.current >= state.total;
+		const complete = state.current >= total;
 		const unknown = [...options.unknown];
 
 		if (options.label.kind !== "hidden") {
-			const prefix = options.file ? `${file.basename} \u2014 ` : "";
-			let text: string;
+			// A block's own label wins; otherwise the template from settings,
+			// and the built-in wording when that is empty too.
+			const applied = progressLabel(
+				options.label.kind === "custom" ? options.label.template : settings.progressLabel,
+				state,
+				file.basename,
+				settings.wordsPerPage,
+				options.file ? `${file.basename} \u2014 ` : "",
+			);
+			unknown.push(...applied.unknown);
 
-			if (options.label.kind === "custom") {
-				const applied = applyTemplate(options.label.template, {
-					current: state.current.toLocaleString(),
-					total: state.total.toLocaleString(),
-					remaining: (state.total - state.current).toLocaleString(),
-					percent: formatPercent(state.fraction),
-					title: file.basename,
-					status: state.status ?? "",
-					words: (state.current * settings.wordsPerPage).toLocaleString(),
-				});
-				text = applied.text;
-				unknown.push(...applied.unknown);
-			} else {
-				text = complete
-					? `${prefix}Finished \u2014 all ${state.total.toLocaleString()} pages.`
-					: `${prefix}Page ${state.current.toLocaleString()} of ${state.total.toLocaleString()}.`;
-			}
-
-			root.createDiv({ cls: "reading-progress-label", text });
+			root.createDiv({ cls: "reading-progress-label", text: applied.text });
 		}
 
 		renderBar(root, {
 			fraction: state.fraction,
 			complete,
-			label: "",
 			ariaLabel: `Reading progress for ${file.basename}`,
 			valueNow: state.current,
-			valueMax: state.total,
+			valueMax: total,
+			settings,
 			color: options.color,
 			height: options.height,
 		});
@@ -129,8 +133,44 @@ export class ProgressBlock extends MarkdownRenderChild {
 			});
 		}
 
+		if (options.showPace && settings.enableHistory && !complete && state.current > 0) {
+			const paceEl = root.createDiv({ cls: "reading-progress-meta" });
+			paceEl.hide();
+			void this.renderPace(paceEl, file, state, total, options, generation);
+		}
+
 		if (options.showButtons) this.renderButtons(root, file, options);
 		this.renderUnknown(root, unknown);
+	}
+
+	/** Fill in the pace line from the note's reading log, when it has enough history. */
+	private async renderPace(
+		el: HTMLElement,
+		file: TFile,
+		state: BookState,
+		total: number,
+		options: ProgressOptions,
+		generation: number,
+	): Promise<void> {
+		const { historyHeading, historyDateFormat } = options.settings;
+		const content = await this.plugin.app.vault.cachedRead(file);
+		if (generation !== this.generation) return;
+
+		const today = moment().startOf("day");
+		const points = readLog(content, historyHeading).flatMap((entry) => {
+			const date = moment(entry.date, historyDateFormat, true);
+			return date.isValid()
+				? [{ daysAgo: today.diff(date.startOf("day"), "days"), page: entry.page }]
+				: [];
+		});
+
+		const pace = bookPace(points, state.current, total, options.settings.paceWindowDays);
+		if (!pace) return;
+
+		el.setText(
+			`About ${formatPerDay(pace.perDay)} \u00b7 ${plural(pace.daysLeft, "day")} left at this pace`,
+		);
+		el.show();
 	}
 
 	private renderButtons(root: HTMLElement, file: TFile, options: ProgressOptions): void {
@@ -140,7 +180,7 @@ export class ProgressBlock extends MarkdownRenderChild {
 		if (options.showPlus) steps.push(smallStep, largeStep);
 
 		const unique = [...new Set(steps.filter((value) => value !== 0))];
-		if (unique.length === 0) return;
+		if (unique.length === 0 && !options.showSet) return;
 
 		const row = root.createDiv({ cls: "reading-progress-buttons" });
 		for (const step of unique) {
@@ -150,10 +190,21 @@ export class ProgressBlock extends MarkdownRenderChild {
 			});
 			button.setAttr(
 				"aria-label",
-				`${step > 0 ? "Advance" : "Rewind"} ${Math.abs(step)} pages`,
+				`${step > 0 ? "Advance" : "Rewind"} ${plural(Math.abs(step), "page")}`,
 			);
 			this.registerDomEvent(button, "click", () => {
 				void movePosition(this.plugin.app, file, step, options.settings);
+			});
+		}
+
+		if (options.showSet) {
+			const button = row.createEl("button", {
+				text: "Page\u2026",
+				cls: "reading-progress-button",
+			});
+			button.setAttr("aria-label", "Set position to a specific page");
+			this.registerDomEvent(button, "click", () => {
+				new SetPositionModal(this.plugin.app, file, options.settings).open();
 			});
 		}
 	}

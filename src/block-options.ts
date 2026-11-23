@@ -58,6 +58,12 @@ function text(value: string | undefined, fallback: string): string {
 	return trimmed && trimmed.length > 0 ? trimmed : fallback;
 }
 
+/** `deadline: none` (or any "off" word) drops the deadline set in settings. */
+function deadline(value: string | undefined, fallback: string): string {
+	if (value === undefined) return fallback;
+	return ["false", "no", "off", "0", "hide", "none", ""].includes(value.toLowerCase()) ? "" : value;
+}
+
 /**
  * A label is either hidden, the built-in wording, or a custom template.
  * `label: false` hides it; `label: Page {current}` supplies a template.
@@ -89,6 +95,8 @@ export const PROGRESS_KEYS = [
 	"buttons",
 	"plus",
 	"minus",
+	"set",
+	"pace",
 	"percent",
 	"label",
 	"color",
@@ -101,6 +109,7 @@ export const GOAL_KEYS = [
 	"tag",
 	"words",
 	"inprogress",
+	"deadline",
 	"percent",
 	"label",
 	"color",
@@ -116,6 +125,10 @@ export interface ProgressOptions extends SharedOptions {
 	showPlus: boolean;
 	/** Show the rewind buttons. */
 	showMinus: boolean;
+	/** Show the button that opens the page prompt. */
+	showSet: boolean;
+	/** Show the pace estimate drawn from the reading log. */
+	showPace: boolean;
 	/** Render another note's progress instead of the host note's. */
 	file: string | null;
 	unknown: string[];
@@ -139,6 +152,8 @@ export function progressOptions(
 		showButtons: bool(values.buttons, base.showButtons),
 		showPlus: bool(values.plus, true),
 		showMinus: bool(values.minus, base.showMinusButtons),
+		showSet: bool(values.set, base.showSetButton),
+		showPace: bool(values.pace, base.showPace),
 		showPercentage: bool(values.percent, base.showPercentage),
 		label: label(values.label),
 		color: values.color ?? null,
@@ -164,10 +179,11 @@ export function goalOptions(source: string, base: ReadingProgressSettings): Goal
 			bookTag: text(values.tag, base.bookTag),
 			wordsPerPage: count(values.words, base.wordsPerPage, 0),
 			countBooksInProgress: bool(values.inprogress, base.countBooksInProgress),
+			goalDeadline: deadline(values.deadline, base.goalDeadline),
 		},
 		showPercentage: bool(values.percent, base.showPercentage),
 		label: label(values.label),
-		showDetails: bool(values.details, true),
+		showDetails: bool(values.details, base.showDetails),
 		color: values.color ?? null,
 		height: values.height === undefined ? null : count(values.height, 10, 1),
 		unknown,

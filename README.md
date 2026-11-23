@@ -1,123 +1,229 @@
 # Reading Goal
 
-An Obsidian plugin that tracks reading progress in note properties and totals it
-against a page goal.
+Track where you are in each book, and how far you are toward a page goal, from the properties in your Obsidian notes.
 
-![A goal bar and two book bars in a dashboard note](docs/dashboard.webp)
+![A dashboard note with a goal bar and two books in progress](docs/dashboard.webp)
 
-It renders a progress bar scaled to a book's own page count, moves your position
-from the command palette or a hotkey, keeps the status property in step, and
-totals every book in the vault against a goal.
+Reading Goal reads a book note's length and your current page from its properties and draws a progress bar from them. Buttons, commands and hotkeys move the page number, and the status property is updated as you start and finish a book. A second block adds up every book in the vault against a goal you set.
 
-## Why this exists
+Your reading data stays in plain properties in your own notes. The plugin works without Dataview, Meta Bind or any other community plugin.
 
-Three things were missing from every plugin in the community registry:
+## Install
 
-- A progress bar whose maximum is read from a property. Meta Bind's progress
-  bar takes a literal `maxValue`, so the scale cannot follow a book's `pages`.
-- Command-palette and hotkey actions that move a frontmatter number. Meta Bind
-  registers no commands at all; its buttons are click-only.
-- A page goal. Bookshelf and Dogear both report what you have read; neither
-  lets you set a target and watch it fill.
+Reading Goal is not in the community plugin directory yet. Until it is, install it with BRAT or by hand. It needs Obsidian 1.10 or later.
 
-Everything else already exists and is not reimplemented here. Library views,
-cover grids and per-year statistics belong to
-[Bookshelf](https://github.com/weph/obsidian-bookshelf); cross-note querying
-belongs to core Bases, via the base this plugin can generate for you.
+**With BRAT**
 
-## Note format
+1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from the community plugins.
+2. In BRAT, add a beta plugin and paste `https://github.com/VSHT3/obsidian-reading-goal`.
+3. Turn on **Reading Goal** under Settings → Community plugins.
 
-The plugin reads three properties. Every key is configurable in settings; these
-are the defaults.
+**By hand**
+
+1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/VSHT3/obsidian-reading-goal/releases/latest).
+2. Put the three files in `<your vault>/.obsidian/plugins/reading-goal/`.
+3. Reload Obsidian and turn on **Reading Goal** under Settings → Community plugins.
+
+## Quick start
+
+1. Open the note for a book you are reading and run **Reading Goal: Track this note as a book** from the command palette. Enter the book's length and the page you are on.
+2. Add a progress block anywhere in that note:
+
+   ````markdown
+   ```reading-progress
+   ```
+   ````
+
+3. Add a goal block to any note you like, for example a reading dashboard:
+
+   ````markdown
+   ```reading-goal
+   ```
+   ````
+
+4. Set your page goal under Settings → Reading Goal.
+
+Step 1 writes this to the note. You can also type it yourself:
 
 ```yaml
 ---
 tags:
   - Book
-pages: 435        # total length
-currentpage: 30   # your position
-status: reading   # to read | reading | finished
+pages: 688        # the book's length
+currentpage: 412  # the page you are on
+status: reading   # to read, reading or finished
 ---
 ```
 
-## The progress bar
+If your book notes already use other property names, see [Using notes you already have](#using-notes-you-already-have).
 
-Put an empty fenced block in a book note:
+![A book note with its properties and a progress bar](docs/book.webp)
 
-````markdown
-```reading-progress
-```
-````
+## Updating your page
 
-It renders the position, a bar scaled to `pages`, the percentage, and the
-`-5 / -1 / +1 / +5` buttons. The bar repaints as soon as the property changes,
-whether you edited it in the properties panel, clicked a button, or ran a
-command.
+There are several ways to move your position, and they all write the same `currentpage` property. The bar redraws as soon as the property changes, including when you edit it by hand. A position is always kept between 0 and the book's length.
 
-The block reports what is wrong rather than rendering nothing: a note with no
-usable `pages` property says so.
+### Buttons
+
+The row under the bar steps back or forward by a small or a large amount, 1 and 5 pages by default. Both step sizes are settings. You can hide the rewind buttons, or the whole row.
+
+### The page prompt
+
+**Page…** opens a prompt for larger moves.
+
+![The page prompt with +25 typed in, showing page 437 of 688](docs/page-prompt.webp)
+
+| You type | You get |
+| --- | --- |
+| `437` | Page 437 |
+| `+25` or `-10` | 25 pages forward, or 10 back |
+| `50%` | Halfway through the book |
+
+The line under the field shows the page and percentage you are about to set. The step buttons change the number in the field, for phone keyboards that have no plus key. **Mark finished** jumps to the last page.
+
+### Commands and hotkeys
+
+None of the commands has a hotkey out of the box. Assign your own under Settings → Hotkeys.
+
+| Command | What it does |
+| --- | --- |
+| Advance position by small step | +1 page by default |
+| Rewind position by small step | -1 page by default |
+| Advance position by large step | +5 pages by default |
+| Rewind position by large step | -5 pages by default |
+| Set position to a specific page | Opens the page prompt |
+| Mark book as finished | Jumps to the last page |
+| Start a re-read | Adds one to the re-read count and returns to page 0 |
+| Update position for any book | Pick a book and set its page |
+| Open a book | Pick a book and open its note |
+| Track this note as a book | Sets up a note that has no page count |
+| Insert book progress block | Builds a block and inserts it at the cursor |
+| Insert vault goal block | The same, for the goal |
+| Create books base | Creates the base, or opens it if it exists |
+| Show progress toward page goal | Shows the goal total in a notice |
+
+The first seven act on the note you have open, and appear in the palette only when that note has a page count. The four step commands repeat while you hold the hotkey down.
+
+### From any note
+
+**Update position for any book** lets you log tonight's pages without opening the book's note first. Books you are reading come first, the most recently edited on top, followed by books you have not started and books you have finished.
+
+![The book picker listing books with their progress](docs/picker.webp)
+
+### Status bar and ribbon
+
+While a book note is open, the status bar shows its position, for example `412 / 688 · 60%`. It updates when you press a step hotkey, and a click on it opens the page prompt. Obsidian's mobile app has no status bar.
+
+The book icon in the ribbon opens a menu with the goal total, actions for the book you have open, the two pickers, and shortcuts for inserting a block, opening the base and opening settings.
+
+### What happens to the status
+
+With **Update status automatically** on, the status property changes with your position:
+
+| When you | The status becomes |
+| --- | --- |
+| Reach the last page | `finished` |
+| Move back from the last page | `reading` |
+| Move forward from page 0, or from an empty or `to read` status | `reading` |
+| Go back to page 0 | `to read` |
+
+The three values are settings. Any other status you have written yourself, such as `abandoned`, is left as it is.
 
 ## The goal
 
-Put an empty fenced block in a dashboard note:
+The goal block adds up every note that carries the book tag and compares the total with your page goal.
+
+- A finished book counts for its full length. A book is finished when its status is the finished value or its position is on the last page.
+- A book in progress counts for the pages you have read so far. Turn off **Count books in progress** to count finished books only.
+- The line under the bar shows how many books are finished, in progress and on the shelf, with an estimate of words read. Set **Words per page** to 0 to drop the estimate.
+
+### A deadline
+
+Set **Goal deadline** to a date such as `2026-12-31` and the block adds a line showing the days left and the pages a day it takes to get there, as in the first screenshot. Today and the deadline day both count as reading days. After the date has passed, the line shows how many days ago that was and how many pages you are short. It disappears when you reach the goal.
+
+### Re-reads
+
+**Start a re-read** adds one to the note's re-read count, returns it to page 0 and marks it as being read again. The book keeps the pages from your first read, so starting a re-read never lowers your total.
+
+By default a book counts once, however many times you read it. With **Count re-reads toward the goal** on, every pass counts. A 310-page book read twice is worth 620 pages, and a re-read in progress adds its pages as you go.
+
+## Reading log and pace
+
+A single page number cannot tell you what you read last month. Turn on **Keep a dated reading log** and each change of position also writes a dated line into the note:
+
+```markdown
+## Reading log
+
+- 2026-11-14: 208
+- 2026-11-17: 281
+- 2026-11-20: 356
+```
+
+There is one line per day and it is rewritten in place, so holding a hotkey produces one entry. The section is added at the end of the note if it is missing. The setting is off by default because it edits the body of your notes, where everything else only touches properties.
+
+With the log on, a book in progress shows your pace under its bar, for example "About 23 pages a day · 13 days left at this pace". The pace is the pages read since the earliest log entry in the last 30 days, divided by the days from that entry to today. It is measured to today, so it falls while a book sits untouched. It appears once the log has an entry from before today.
+
+## Several books in one note
+
+A progress block normally tracks the note it sits in. Give it a `file` and it tracks another note, with buttons that write to that note:
 
 ````markdown
-```reading-goal
+```reading-progress
+file: Dune
+```
+
+```reading-progress
+file: Perdido Street Station
 ```
 ````
 
-It sums every note carrying the book tag and compares the total to your goal:
+The dashboard at the top of this page is built this way.
 
-```
-1,817 of 3,000 pages.
-[============================        ] 60.6%
-3 finished · 2 in progress · 5 on the shelf · ~763,140 words
-```
+## The books base
 
-Finished books contribute their full length. Books in progress contribute the
-pages you have actually read, so a book you are 300 pages into is not worth
-zero until the day you finish it. Turn that off with **Count books in
-progress** if you would rather count only completed books.
+**Create books base** writes a [Bases](https://help.obsidian.md/bases) file over every note with the book tag and opens it. It has five views:
 
-A book counts as finished when its status matches the finished value *or* its
-position has reached the last page, so books whose status was never updated are
-still counted, and never counted twice.
-
-## Commands
-
-All position commands appear in the palette only when the active note has a
-usable page count. None ships with a default hotkey; bind what you want.
-
-| Command | Effect |
+| View | Shows |
 | --- | --- |
-| Advance position by small step | `+1` by default |
-| Rewind position by small step | `-1` by default |
-| Advance position by large step | `+5` by default |
-| Rewind position by large step | `-5` by default |
-| Set position to a specific page | Opens a prompt |
-| Mark book as finished | Jumps to the last page |
-| Start a re-read | Bumps the re-read count, back to page zero |
-| Insert book progress block | Opens the insert modal |
-| Insert vault goal block | Opens the insert modal |
-| Create books base | Writes `Books.base` and opens it |
-| Show progress toward page goal | Notice with the vault total |
+| Reading now | A bar, percentage, page, length and pages left for each book in progress |
+| Finished | Finished books, with total pages and estimated words |
+| To read | The queue, with total pages |
+| Shelf | Every book as a card |
+| Progress bars | A bar for each book with progress, in the plugin's own view |
 
-The four step commands are `repeatable`, so holding the hotkey scrubs through
-the book. Every step lands: positions are resolved inside the frontmatter
-transaction rather than read from the metadata cache, which lags writes.
+![The Progress bars view of the books base](docs/base.webp)
 
-## Ribbon
+The first four views are plain Bases and keep working if you remove the plugin. **Progress bars** needs the plugin and the Bases core plugin turned on.
 
-The ribbon icon opens a menu showing the current goal total and book counts,
-with entries to insert a block at the cursor, create the base, and jump to the
-plugin's settings. On macOS this renders as a native menu.
+The base is written using your current property names. If you rename a property later, delete the base and create it again.
 
-## Block options
+## Customising
 
-Both blocks take `key: value` lines. Anything omitted follows the settings, so
-a bare block stays in step with your configuration; anything set is pinned to
-that block. Unknown keys are reported in the rendered output rather than
-ignored silently. Lines starting with `#` are comments.
+Everything has a default under Settings → Reading Goal. A block can override most of them for itself.
+
+![The appearance settings with a live preview of the bar](docs/settings.webp)
+
+### Settings
+
+| Section | What you can change |
+| --- | --- |
+| Goal | Page goal (10,000 to begin with), deadline, whether books in progress count, words per page |
+| Book notes | The book tag and the property names, with a count of the notes they match |
+| Status | Automatic updates and the three status values |
+| Controls | The button row, both step sizes, rewind buttons, the page button |
+| Appearance | Bar colour, completed colour, bar height, percentage, label text for books and for the goal, the goal's details line |
+| Status bar | Whether it shows, and its text |
+| Re-reads | The count property, and whether re-reads count toward the goal |
+| Reading log | Whether to keep it, its heading and date format, the pace and how many days it looks back |
+| Base | Where the books base is saved |
+
+A preview at the top of Appearance redraws as you change colours, height, label and buttons. Colours you leave alone follow your theme.
+
+A value that cannot work is not saved, and a message under the field says why. That covers text in a number field, a date in the wrong format, a misspelt placeholder, and a name that another property or status already uses. Each field you have changed gets a button that restores its default, and **Restore all defaults** at the bottom resets the page. Neither changes your notes.
+
+### Block options
+
+Options go inside a block as `key: value` lines. Leave an option out and the block follows your settings. Lines that start with `#` are comments. A key the plugin does not know is named in the rendered block, so a typo shows up in the note.
 
 ````markdown
 ```reading-progress
@@ -130,174 +236,93 @@ percent: false
 ```
 ````
 
-| `reading-progress` | Meaning |
+| `reading-progress` option | Meaning |
 | --- | --- |
-| `file` | Track another note. Accepts a name or `[[wikilink]]` |
-| `pages`, `current`, `status` | Override the property names |
-| `small`, `large` | Override the step sizes |
-| `buttons` | Show the button row at all |
-| `plus`, `minus` | Show the advance / rewind buttons separately |
+| `file` | Track another note. Takes a note name or a `[[wikilink]]` |
+| `pages`, `current`, `status` | Property names to use for this block |
+| `small`, `large` | Step sizes |
+| `buttons` | Show the button row |
+| `plus`, `minus` | Show the forward or the back buttons |
+| `set` | Show the **Page…** button |
+| `pace` | Show the pace line |
 | `percent` | Show the percentage |
-| `label` | `false` to hide, or a template — see below |
-| `color`, `height` | Any CSS colour; bar height in pixels |
+| `label` | `false` to hide the label, or your own text (see below) |
+| `color` | Any CSS colour |
+| `height` | Bar height in pixels |
 
-| `reading-goal` | Meaning |
+| `reading-goal` option | Meaning |
 | --- | --- |
-| `goal` | Page target for this block |
+| `goal` | Page goal for this block |
+| `deadline` | A date such as `2026-12-31`, or `none` to ignore the deadline in settings |
 | `tag` | Book tag to count |
-| `words` | Words per page, `0` hides the estimate |
-| `inprogress` | Count unfinished books |
-| `details` | Show the counts line |
+| `inprogress` | Count books in progress |
+| `words` | Words per page. `0` hides the estimate |
+| `details` | Show the line of book counts |
 | `percent`, `label`, `color`, `height` | As above |
 
-Booleans accept `true/false`, `yes/no`, `on/off`, `1/0`, `show/hide`.
+On/off options accept `true` and `false`, `yes` and `no`, `on` and `off`, `1` and `0`, or `show` and `hide`.
 
-`file:` makes a dashboard of several books possible, each with working
-buttons; the buttons write to the tracked note, not the note they sit in.
+If you would rather not type options, **Insert book progress block** and **Insert vault goal block** open a form that builds the block for you. It writes only the options that differ from your settings.
 
-`minus: false` gives advance-only controls, which suits a book you only ever
-move forward in. `plus: false` does the reverse. Both default to the **Show
-rewind buttons** setting.
+### Label text
 
-## Custom labels
-
-`label` takes any text, with `{token}` placeholders:
+The text above a bar can be your own, either for every block (**Book label** and **Goal label** in settings) or for one block with `label`. Placeholders in braces are replaced with live values:
 
 ````markdown
 ```reading-progress
-label: {title} — {current}/{total} ({percent}), {remaining} to go
+label: {title}: {current} of {total}, {remaining} to go
 ```
 ````
 
-| `reading-progress` | `reading-goal` |
+| For a book | For the goal |
 | --- | --- |
 | `{current}` `{total}` `{remaining}` | `{read}` `{goal}` `{remaining}` |
-| `{percent}` `{title}` `{status}` | `{percent}` `{books}` |
-| `{words}` | `{finished}` `{inprogress}` `{words}` |
+| `{percent}` `{title}` `{status}` | `{percent}` `{books}` `{finished}` `{inprogress}` |
+| `{words}` | `{words}` `{rereads}` |
+| | `{deadline}` `{daysleft}` `{pace}` |
 
-Numbers arrive already formatted with thousands separators. Tokens are
-case-insensitive. A token that does not exist is left visible in the note and
-named in an "ignored" line, so a typo is obvious rather than rendering blank.
-`label: false` still hides the label entirely.
+Numbers come with thousands separators. A placeholder that does not exist is left in the label and named underneath it. The status bar text takes the book placeholders too.
 
-## The insert modal
+## Using notes you already have
 
-**Insert book progress block** and **Insert vault goal block**, or the ribbon
-menu, open a modal that builds a block and drops it at the cursor. It shows a
-live preview of the exact text, and writes only the options that differ from
-your settings, so blocks stay short.
+You do not have to rename anything. Under Settings → Reading Goal → Book notes, enter the tag and the property names your notes already use. **Matching notes** underneath shows how many notes the plugin finds with them, for example `6 tagged #Book · 6 with a numeric "pages"`.
 
-The **Another note** field autocompletes against the vault, ranking notes with
-the book tag first — it does not restrict to them, so a note can be pointed at
-before it is tagged.
+- The tag is matched without regard to capitals, in properties or in the note body.
+- A page count written as text, such as `pages: "435"`, is read as a number.
+- A note with the tag but no page count still counts as a book on the shelf. Its progress block offers a **Set up as a book** button.
 
-## Status handling
+## Mobile
 
-With **Update status automatically** on:
+Reading Goal is not limited to desktop. On phones and tablets the buttons are larger and share the row evenly, and the page prompt asks for the number keyboard. So far this has been checked in Obsidian's mobile emulation and not on a device, so reports from real phones are welcome.
 
-- reaching the last page writes the finished value
-- moving off the last page writes the reading value
-- advancing from zero, from an unread status, or from a blank status writes the
-  reading value
-- returning to page zero writes the unread value
+## Troubleshooting
 
-Only statuses the plugin manages are rewritten. A bespoke value such as
-`abandoned` is left alone.
+**The block says the note has no numeric page count.** Add a `pages` property with a number, or press **Set up as a book**.
 
-Positions are always clamped to `0 … pages`, whichever way they are set.
+**The position commands are missing from the command palette.** They appear only when the open note has a page count.
 
-## The base
+**The block says it ignored an unknown option.** Check the spelling of the key against the tables above.
 
-**Create books base** writes `Books.base` at the vault root, generated against
-your configured property names, and opens it. Five views over every note
-carrying the book tag:
+**The Progress bars view is missing from the base.** Turn on the Bases core plugin.
 
-- **Reading now** — a bar, percentage, page, length and pages left, with sums
-- **Finished** — with total pages and estimated words
-- **To read** — the queue, with total pages
-- **Shelf** — a card grid
-- **Progress bars** — this plugin's own Bases view
+**The base shows empty columns after renaming a property.** Delete the base and run **Create books base** again.
 
-Two of those render bars, by different means.
+## Feedback
 
-The **table** bar is a formula using the core `html()` function:
-
-```yaml
-bar: 'if(pages, html("<progress value=\"" + currentpage + "\" max=\"" + pages + "\"></progress>"), "")'
-```
-
-That is plain Bases. It keeps working if this plugin is disabled or removed.
-
-**Progress bars** is a view type the plugin registers with `registerBasesView`,
-drawing a themed bar per row plus a total line. Bases still owns the filtering,
-sorting and grouping; the view only draws, and repaints when Bases pushes new
-data. It needs Obsidian 1.10 or later, and disappears if Bases is turned off in
-the vault — the rest of the plugin is unaffected.
-
-Because the base is generated from your settings, regenerate it after renaming
-a property: delete the file and run the command again.
-
-## Re-reads
-
-**Start a re-read** increments the re-read count property, returns the note to
-page zero and marks it as being read again — all in one write, so the note is
-never briefly inconsistent.
-
-With **Count re-reads toward the goal** on, each recorded pass adds another
-copy of the book's length to the total. A 310-page book read twice is worth
-620. Off by default, so the goal counts distinct books unless you say
-otherwise.
-
-The property defaults to `re-read?`, matching the key the Book Search template
-already writes.
-
-## Reading log
-
-A single `currentpage` cannot answer "what did I read in March". Turn on
-**Keep a dated reading log** and every position change also writes a dated
-line into the note body:
-
-```markdown
-## Reading log
-
-- 2026-08-30: 120
-- 2026-09-01: 205
-```
-
-One entry per day, **rewritten in place** — holding a hotkey produces one line,
-not forty. A write that changes nothing writes nothing. The section is created
-at the end of the note when missing, matched case-insensitively at any heading
-level, and content below a later heading is never disturbed.
-
-Off by default, because it edits note bodies rather than only frontmatter.
-
-The heading and date format are configurable; the date uses Moment.js
-formatting, the same as core Obsidian.
-
-## Settings
-
-Property names (`pages`, `currentpage`, `status`, book tag), the three status
-values, both step sizes, the page goal, words per page, whether in-progress
-books count, whether re-reads count, the reading-log heading and date format,
-and whether the percentage, buttons and rewind buttons are shown.
+Bug reports and suggestions are welcome in the [issue tracker](https://github.com/VSHT3/obsidian-reading-goal/issues). It helps to include your Obsidian version, whether you are on desktop or mobile, and the block as you wrote it.
 
 ## Development
 
 ```sh
 npm install
 npm run dev     # watch build
-npm run build   # typecheck + production bundle
-npm test        # behavioural tests, no Obsidian required
+npm run build   # typecheck and production bundle
+npm test        # logic tests, no Obsidian needed
+npm run lint
 ```
 
-`npm test` runs the real plugin logic against an in-memory stand-in for the
-Obsidian APIs (`test/obsidian-stub.ts`), covering property coercion, clamping,
-status transitions, malformed-frontmatter handling, concurrent repeated moves,
-goal aggregation, re-read counting, and the reading-log editor.
-
-To install locally, copy `main.js`, `manifest.json` and `styles.css` into
-`<vault>/.obsidian/plugins/reading-goal/`.
+`npm test` runs the plugin's logic against an in-memory stand-in for the Obsidian API in `test/obsidian-stub.ts`. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ## Licence
 
-MIT
+[MIT](LICENSE)
